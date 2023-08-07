@@ -1,0 +1,45 @@
+# This file is a template, and might need editing before it works on your project.
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/ee/development/cicd/templates.html
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Docker.gitlab-ci.yml
+
+# Build a Docker image with CI/CD and push to the GitLab registry.
+# Docker-in-Docker documentation: https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
+#
+# This template uses one generic job with conditional builds
+# for the default branch and all other (MR) branches.
+# 定义执行的各个阶段及顺序
+variables:
+  # 镜像全路径
+  HARBOR_IMG: "$HARBOR_HOST/$CI_PROJECT_PATH"
+  
+stages:
+  - build
+  - image
+
+jar-build:
+  image: harbor.digitalchina.com/public/maven:3-openjdk-8
+  stage: build
+  script:
+    - mvn clean package -Dmaven.test.skip=true
+  artifacts:
+    when: on_success
+    paths: # Pass Dockerfile to avoid clone codes in the next jobs
+      - Dockerfile
+      - xxl-job-admin/target/*.jar
+      #- manifests/*
+
+image-build:
+  image: docker:20.10.16
+  stage: image
+  only:
+    - tags
+  before_script:
+    - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" $HARBOR_HOST
+  script:
+    - docker pull ${HARBOR_IMG}:latest || true
+    #- docker build --cache-from ${HARBOR_IMG}:latest --tag ${HARBOR_IMG}${CI_COMMIT_TAG} --tag ${HARBOR_IMG}:latest .
+    - docker build --tag ${HARBOR_IMG}:${CI_COMMIT_TAG} --tag ${HARBOR_IMG}:latest .
+    - docker push ${HARBOR_IMG}:${CI_COMMIT_TAG}
+    - docker push ${HARBOR_IMG}:latest
