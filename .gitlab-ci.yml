@@ -1,15 +1,15 @@
-# This file is a template, and might need editing before it works on your project.
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Docker.gitlab-ci.yml
+# 本模板主要用于 构建并推送Java应用镜像至镜像仓库， 一共分为两个Stages： build、 image
+#  build 阶段： 编译打包，并上传制品库。  （此步骤并发核心步骤，部分项目可以参考优化，也可以省掉此阶段直接构建镜像）
+#  image 阶段： 构建镜像，并推送至镜像仓库
+#  流水线运行条件： 代码打标签 或者 手动运行流水线 设置：APP_TAG
 
-# Build a Docker image with CI/CD and push to the GitLab registry.
-# Docker-in-Docker documentation: https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
-#
-# This template uses one generic job with conditional builds
-# for the default branch and all other (MR) branches.
-# 定义执行的各个阶段及顺序
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG #代码打标签
+    - if: $APP_TAG #手动运行流水线 设置：APP_TAG
+
+
 variables:
   # 镜像全路径
   HARBOR_IMG: "$HARBOR_HOST/$CI_PROJECT_PATH"
@@ -33,13 +33,17 @@ jar-build:
 image-build:
   image: docker:20.10.16
   stage: image
-  only:
-    - tags
   before_script:
     - docker login -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD" $HARBOR_HOST
   script:
-    - docker pull ${HARBOR_IMG}:latest || true
-    #- docker build --cache-from ${HARBOR_IMG}:latest --tag ${HARBOR_IMG}${CI_COMMIT_TAG} --tag ${HARBOR_IMG}:latest .
-    - docker build --tag ${HARBOR_IMG}:${CI_COMMIT_TAG} --tag ${HARBOR_IMG}:latest .
-    - docker push ${HARBOR_IMG}:${CI_COMMIT_TAG}
-    - docker push ${HARBOR_IMG}:latest
+    - |
+      if [ -n "$APP_TAG" ]; then
+        TAG="$APP_TAG"
+      else
+        TAG="$CI_COMMIT_TAG"
+      fi
+    - echo "Set TAG=$TAG"
+    - docker build -t ${HARBOR_IMG}:${TAG} .
+    - docker push ${HARBOR_IMG}:${TAG}
+
+
