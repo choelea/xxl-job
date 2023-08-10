@@ -4,6 +4,8 @@ import com.xxl.job.admin.controller.annotation.PermissionLimit;
 import com.xxl.job.admin.core.model.XxlJobUser;
 import com.xxl.job.admin.core.util.I18nUtil;
 import com.xxl.job.admin.service.LoginService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.AsyncHandlerInterceptor;
@@ -11,6 +13,7 @@ import org.springframework.web.servlet.AsyncHandlerInterceptor;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Enumeration;
 
 /**
  * 权限拦截
@@ -20,12 +23,19 @@ import javax.servlet.http.HttpServletResponse;
 @Component
 public class PermissionInterceptor implements AsyncHandlerInterceptor {
 
+	private Logger logger = LoggerFactory.getLogger(PermissionInterceptor.class);
 	@Resource
 	private LoginService loginService;
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-		
+
+		logger.debug("Request URL: " + request.getRequestURL());
+		Enumeration headerNames = request.getHeaderNames();
+		while(headerNames.hasMoreElements()) {
+			String headerName = (String)headerNames.nextElement();
+			logger.debug("Request Header: {} ---- {}" , headerName, request.getHeader(headerName));
+		}
 		if (!(handler instanceof HandlerMethod)) {
 			return true;	// proceed with the next interceptor
 		}
